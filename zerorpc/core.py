@@ -52,7 +52,7 @@ logger = getLogger(__name__)
 class ServerBase(object):
 
     def __init__(self, channel, methods=None, name=None, context=None,
-            pool_size=None, heartbeat=5):
+            pool_size=None, heartbeat=5, heartbeat_check_factor=2):
         self._multiplexer = ChannelMultiplexer(channel)
 
         if methods is None:
@@ -66,6 +66,7 @@ class ServerBase(object):
 
         self._inject_builtins()
         self._heartbeat_freq = heartbeat
+        self._heartbeat_check_factor = heartbeat_check_factor
 
         for (k, functor) in iteritems(self._methods):
             if not isinstance(functor, DecoratorBase):
@@ -141,7 +142,7 @@ class ServerBase(object):
         protocol_v1 = initial_event.header.get(u'v', 1) < 2
         channel = self._multiplexer.channel(initial_event)
         hbchan = HeartBeatOnChannel(channel, freq=self._heartbeat_freq,
-                passive=protocol_v1)
+                passive=protocol_v1, check_factor=self._heartbeat_check_factor)
         bufchan = BufferedChannel(hbchan)
         exc_infos = None
         event = bufchan.recv()
@@ -187,13 +188,14 @@ class ServerBase(object):
 class ClientBase(object):
 
     def __init__(self, channel, context=None, timeout=30, heartbeat=5,
-            passive_heartbeat=False):
+            passive_heartbeat=False, heartbeat_check_factor=2):
         self._multiplexer = ChannelMultiplexer(channel,
                 ignore_broadcast=True)
         self._context = context or Context.get_instance()
         self._timeout = timeout
         self._heartbeat_freq = heartbeat
         self._passive_heartbeat = passive_heartbeat
+        self._heartbeat_check_factor = heartbeat_check_factor
 
     def close(self):
         self._multiplexer.close()
@@ -258,7 +260,7 @@ class ClientBase(object):
         timeout = kargs.get('timeout', self._timeout)
         channel = self._multiplexer.channel()
         hbchan = HeartBeatOnChannel(channel, freq=self._heartbeat_freq,
-                passive=self._passive_heartbeat)
+                passive=self._passive_heartbeat, check_factor=self._heartbeat_check_factor)
         bufchan = BufferedChannel(hbchan, inqueue_size=kargs.get('slots', 100))
 
         xheader = self._context.hook_get_task_context()
@@ -281,7 +283,7 @@ class ClientBase(object):
 class Server(SocketBase, ServerBase):
 
     def __init__(self, methods=None, name=None, context=None, pool_size=None,
-            heartbeat=5):
+            heartbeat=5, heartbeat_check_factor=2):
         SocketBase.__init__(self, zmq.ROUTER, context)
         if methods is None:
             methods = self
@@ -289,7 +291,7 @@ class Server(SocketBase, ServerBase):
         name = name or ServerBase._extract_name(methods)
         methods = ServerBase._filter_methods(Server, self, methods)
         ServerBase.__init__(self, self._events, methods, name, context,
-                pool_size, heartbeat)
+                pool_size, heartbeat, heartbeat_check_factor)
 
     def close(self):
         ServerBase.close(self)
@@ -299,10 +301,10 @@ class Server(SocketBase, ServerBase):
 class Client(SocketBase, ClientBase):
 
     def __init__(self, connect_to=None, context=None, timeout=30, heartbeat=5,
-            passive_heartbeat=False):
+            passive_heartbeat=False, heartbeat_check_factor=2):
         SocketBase.__init__(self, zmq.DEALER, context=context)
         ClientBase.__init__(self, self._events, context, timeout, heartbeat,
-                passive_heartbeat)
+                passive_heartbeat, heartbeat_check_factor)
         if connect_to:
             self.connect(connect_to)
 

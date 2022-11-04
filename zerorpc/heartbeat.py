@@ -36,7 +36,7 @@ from .channel_base import ChannelBase
 
 class HeartBeatOnChannel(ChannelBase):
 
-    def __init__(self, channel, freq=5, passive=False):
+    def __init__(self, channel, freq=5, passive=False, check_factor=2):
         self._closed = False
         self._channel = channel
         self._heartbeat_freq = freq
@@ -47,6 +47,7 @@ class HeartBeatOnChannel(ChannelBase):
         self._heartbeat_task = None
         self._parent_coroutine = gevent.getcurrent()
         self._compat_v2 = None
+        self._check_factor = check_factor
         if not passive:
             self._start_heartbeat()
 
@@ -75,7 +76,7 @@ class HeartBeatOnChannel(ChannelBase):
             gevent.sleep(self._heartbeat_freq)
             if self._remote_last_hb is None:
                 self._remote_last_hb = time.time()
-            if time.time() > self._remote_last_hb + self._heartbeat_freq * 2:
+            if time.time() > self._remote_last_hb + self._heartbeat_freq * self._check_factor:
                 self._lost_remote = True
                 if not self._closed:
                     gevent.kill(self._parent_coroutine,
