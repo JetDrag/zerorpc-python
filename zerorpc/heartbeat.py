@@ -103,8 +103,9 @@ class HeartBeatOnChannel(ChannelBase):
                 self._input_queue.put(event)
 
     def _lost_remote_exception(self):
-        return LostRemote('Lost remote after {0}s heartbeat'.format(
-            self._heartbeat_freq * 2))
+        return LostRemote('Lost remote after {0}s heartbeat'
+                          ' at check factor {1}'.format(
+            self._heartbeat_freq , self._check_factor))
 
     def new_event(self, name, args, header=None):
         if self._compat_v2 and name == u'_zpc_more':
