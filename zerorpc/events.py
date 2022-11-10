@@ -248,6 +248,7 @@ class Events(ChannelBase):
         self._zmq_socket_type = zmq_socket_type
         self._context = context or Context.get_instance()
         self._socket = self._context.socket(zmq_socket_type)
+        self._socket.setsockopt(zmq.IPV6, True)
 
         if zmq_socket_type in (zmq.PUSH, zmq.PUB, zmq.DEALER, zmq.ROUTER):
             self._send = Sender(self._socket)
